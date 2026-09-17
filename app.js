@@ -1,5 +1,7 @@
 const TODAY = new Date(2026, 8, 17);
 const MONTHS_TH = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+const WEEKDAYS_TH = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
+const FOLLOW_UP = new Set(["ติดต่อแล้ว-ลังเล", "ติดต่อแล้ว-ขอส่วนลด", "ติดต่อแล้ว-สนใจเปรียบเทียบ", "นัดติดตามช่วงบ่าย"]);
 const EV_MODELS = new Set(["Model 3", "Model Y", "Atto 3", "Dolphin", "4 EV"]);
 const TYPE_RANK = ["ชั้น 1", "ชั้น 2+", "ชั้น 3+"];
 
@@ -7,7 +9,7 @@ const state = {
   filter: "today",
   query: "",
   selectedId: null,
-  view: "today",
+  view: "brief",
   feedback: "",
 };
 
@@ -28,6 +30,10 @@ function daysBetween(from, to) {
 function formatDate(iso) {
   const [y, m, d] = iso.split("-").map(Number);
   return `${d} ${MONTHS_TH[m - 1]} ${y + 543}`;
+}
+
+function formatTodayLabel() {
+  return `${WEEKDAYS_TH[TODAY.getDay()]} ${TODAY.getDate()} ${MONTHS_TH[TODAY.getMonth()]} ${TODAY.getFullYear() + 543}`;
 }
 
 function formatMoney(n) {
@@ -236,7 +242,34 @@ function visibleCustomers() {
 }
 
 function selectedCustomer() {
-  return customers.find((customer) => customer.Customer_ID === state.selectedId) || visibleCustomers()[0] || customers[0];
+  if (state.selectedId) {
+    return customers.find((customer) => customer.Customer_ID === state.selectedId) || null;
+  }
+  if (state.view === "brief") return null;
+  return visibleCustomers()[0] || null;
+}
+
+function todayFocus() {
+  const dueSoon = customers.filter((customer) => customer.daysLeft <= 7);
+  const ranked = dueSoon
+    .filter((customer) => customer.Contact_Status !== "ติดต่อแล้ว-ปฏิเสธ")
+    .sort((a, b) => scoreCustomer(b) - scoreCustomer(a) || a.daysLeft - b.daysLeft);
+  return {
+    dueSoon: dueSoon.length,
+    urgent: ranked.filter((customer) => customer.daysLeft <= 3).length,
+    uncontacted: dueSoon.filter((customer) => customer.Contact_Status === "ยังไม่ได้ติดต่อ").length,
+    followUp: dueSoon.filter((customer) => FOLLOW_UP.has(customer.Contact_Status)).length,
+    first: ranked[0] || null,
+    next: ranked.slice(1, 5),
+  };
+}
+
+function openCase(id) {
+  state.selectedId = id;
+  state.feedback = "";
+  state.view = state.filter === "all" ? "all" : "today";
+  setNav(state.view);
+  refresh();
 }
 
 function h(tag, props, ...kids) {
@@ -272,8 +305,12 @@ function renderQueue() {
     return;
   }
 
-  if (!list.some((customer) => customer.Customer_ID === state.selectedId)) {
-    state.selectedId = list[0].Customer_ID;
+  if (state.view !== "brief") {
+    if (state.selectedId && !list.some((customer) => customer.Customer_ID === state.selectedId)) {
+      state.selectedId = list[0]?.Customer_ID || null;
+    } else if (!state.selectedId && list[0]) {
+      state.selectedId = list[0].Customer_ID;
+    }
   }
 
   queue.replaceChildren(
@@ -350,10 +387,88 @@ function renderOffer(customer, offer) {
   ];
 }
 
+function renderBrief() {
+  const focus = todayFocus();
+  const first = focus.first;
+  const action = first ? nextAction(first, recommend(first)) : null;
+
+  return h(
+    "article",
+    { className: "today-brief" },
+    h("p", { className: "brief-kicker", text: formatTodayLabel() }),
+    h("h2", { text: "วันนี้เริ่มโทรเคสใกล้หมดอายุที่ยังไม่ได้คุย" }),
+    h("p", {
+      className: "brief-lead",
+      text: `มี ${focus.dueSoon} รายที่หมดอายุใน 7 วัน เริ่มจาก ${focus.urgent} รายที่เหลือไม่เกิน 3 วัน โดยเฉพาะ ${focus.uncontacted} รายที่ยังไม่ได้ติดต่อ`,
+    }),
+    h(
+      "dl",
+      { className: "brief-stats" },
+      ...[
+        ["ใกล้หมดอายุ", String(focus.dueSoon)],
+        ["หมดใน 3 วัน", String(focus.urgent), "is-urgent"],
+        ["ยังไม่คุย", String(focus.uncontacted)],
+        ["ต้องติดตาม", String(focus.followUp)],
+      ].map(([label, value, extra]) =>
+        h("div", { className: extra || "" }, h("dt", { text: label }), h("dd", { text: value }))
+      )
+    ),
+    first
+      ? h(
+          "section",
+          { className: "brief-next" },
+          h("p", { className: "brief-next-label", text: "งานแรกที่ควรทำ" }),
+          h("h3", {}, first.Customer_Name, h("span", { text: `${first.Car_Brand} ${first.Car_Model}` })),
+          h("p", { text: `${action.title}. ${action.detail}` }),
+          h("button", {
+            className: "primary-button",
+            type: "button",
+            text: "เริ่มเคสนี้",
+            onClick: () => openCase(first.Customer_ID),
+          })
+        )
+      : h("p", { className: "empty-rail", text: "วันนี้ไม่มีเคสใกล้หมดอายุ" }),
+    focus.next.length
+      ? h(
+          "section",
+          { className: "brief-list" },
+          h("h3", { text: "ลำดับที่ควรทำต่อ" }),
+          h(
+            "ol",
+            {},
+            ...focus.next.map((customer, index) => {
+              const next = nextAction(customer, recommend(customer));
+              return h(
+                "li",
+                {},
+                h(
+                  "button",
+                  {
+                    type: "button",
+                    className: "brief-item",
+                    onClick: () => openCase(customer.Customer_ID),
+                  },
+                  h("b", { text: String(index + 1) }),
+                  h("strong", { text: customer.Customer_Name }),
+                  h("span", { text: `${daysLabel(customer.daysLeft)}  ${next.title}` })
+                )
+              );
+            })
+          )
+        )
+      : null
+  );
+}
+
 function renderCase() {
   const view = document.querySelector("#caseView");
   if (state.view === "criteria") {
     view.replaceChildren(renderCriteria());
+    return;
+  }
+
+  if (state.view === "brief") {
+    view.replaceChildren(renderBrief());
     return;
   }
 
@@ -529,7 +644,7 @@ function renderCase() {
 
 function refreshRailCopy() {
   const titles = { today: "งานวันนี้", open: "ยังไม่ติดต่อ", all: "ลูกค้าทั้งหมด" };
-  document.querySelector("#railDate").textContent = "17 ก.ย. 2569";
+  document.querySelector("#railDate").textContent = formatTodayLabel();
   document.querySelector("#railTitle").textContent = titles[state.filter];
   document.querySelector("#railCount").textContent = `${visibleCustomers().length} จาก 100 ราย`;
 }
@@ -543,7 +658,8 @@ function refresh() {
 function setNav(view) {
   state.view = view;
   document.querySelectorAll(".nav-link").forEach((link) => {
-    link.classList.toggle("is-active", link.dataset.view === view);
+    const active = link.dataset.view === view || (view === "brief" && link.dataset.view === "today");
+    link.classList.toggle("is-active", active);
   });
 }
 
@@ -554,20 +670,29 @@ function setFilter(filter) {
   });
 }
 
+document.querySelector(".brand").addEventListener("click", (event) => {
+  event.preventDefault();
+  state.feedback = "";
+  state.selectedId = null;
+  setFilter("today");
+  setNav("brief");
+  refresh();
+});
+
 document.querySelector("#queue").addEventListener("click", (event) => {
   const item = event.target.closest(".queue-item");
   if (!item) return;
-  state.feedback = "";
-  state.selectedId = item.dataset.id;
-  setNav(state.filter === "all" ? "all" : "today");
-  refresh();
+  openCase(item.dataset.id);
 });
 
 document.querySelectorAll(".filter").forEach((button) => {
   button.addEventListener("click", () => {
     state.feedback = "";
-    setFilter(button.dataset.filter);
-    setNav(button.dataset.filter === "all" ? "all" : "today");
+    const filter = button.dataset.filter;
+    setFilter(filter);
+    if (filter === "all") setNav("all");
+    else if (state.view === "brief" && filter === "today") setNav("brief");
+    else setNav("today");
     refresh();
   });
 });
@@ -576,8 +701,16 @@ document.querySelectorAll(".nav-link").forEach((button) => {
   button.addEventListener("click", () => {
     state.feedback = "";
     const view = button.dataset.view;
-    setNav(view);
-    if (view !== "criteria") setFilter(view === "all" ? "all" : "today");
+    if (view === "today") {
+      state.selectedId = null;
+      setFilter("today");
+      setNav("brief");
+    } else if (view === "all") {
+      setFilter("all");
+      setNav("all");
+    } else {
+      setNav(view);
+    }
     refresh();
   });
 });
