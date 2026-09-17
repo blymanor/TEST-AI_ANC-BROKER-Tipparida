@@ -75,8 +75,9 @@ nav {
   height: 100%;
 }
 .nav-link {
+  position: relative;
   height: 100%;
-  padding: 0;
+  padding: 0 2px;
   border: 0;
   background: none;
   color: var(--muted);
@@ -85,7 +86,15 @@ nav {
 }
 .nav-link.is-active {
   color: var(--accent-dark);
-  box-shadow: inset 0 -3px 0 var(--accent);
+}
+.nav-link.is-active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  background: var(--accent);
 }
 .agent {
   margin: 0 0 0 auto;
@@ -197,14 +206,12 @@ nav {
 }
 .queue-item .meta,
 .queue-item .sub {
+  grid-column: 1 / -1;
   color: var(--muted);
   font-size: 12px;
-  line-height: 1.4;
+  line-height: 1.45;
 }
-.queue-item .meta {
-  grid-column: 1 / -1;
-  margin-top: 2px;
-}
+.queue-item .sub { margin-top: 2px; }
 .level {
   font-size: 11px;
   font-weight: 700;
@@ -274,8 +281,8 @@ nav {
 
 .case-facts {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--s5);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s4) var(--s6);
   margin-top: var(--s5);
   padding: var(--s4) 0;
   border-top: 1px solid var(--line);
@@ -545,16 +552,20 @@ nav {
   .shell { grid-template-columns: 1fr; }
   .task-rail {
     height: auto;
-    max-height: 42vh;
+    max-height: none;
     border-right: 0;
     border-bottom: 1px solid var(--line);
+  }
+  .queue {
+    flex: none;
+    max-height: 34vh;
   }
   .case-workspace {
     min-height: 0;
     padding: var(--s5) var(--s5) var(--s6);
   }
-  .work-grid,
-  .case-facts { grid-template-columns: 1fr 1fr; }
+  .work-grid { grid-template-columns: 1fr 1fr; }
+  .case-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .topbar { gap: var(--s4); padding: 0 var(--s4); }
 }
 @media (max-width: 720px) {
