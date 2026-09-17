@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0a73b0" />
+    <title>ANC | งานต่ออายุ</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#workspace" aria-label="ANC InsurTech">ANC</a>
+      <nav aria-label="เมนูหลัก">
+        <button type="button" class="nav-link is-active" data-view="today">งานวันนี้</button>
+        <button type="button" class="nav-link" data-view="all">ลูกค้าทั้งหมด</button>
+        <button type="button" class="nav-link" data-view="criteria">เกณฑ์การจัดลำดับ</button>
+      </nav>
+      <p class="agent">ผู้ดูแลเคส <strong>AE Team</strong></p>
+    </header>
+
+    <main id="workspace" class="shell">
+      <aside class="task-rail" aria-label="รายการงานต่ออายุ">
+        <header class="rail-heading">
+          <p id="railDate" class="rail-date"></p>
+          <h1 id="railTitle">งานวันนี้</h1>
+          <p id="railCount" class="rail-count"></p>
+        </header>
+
+        <label class="search">
+          <span class="sr-only">ค้นหาลูกค้า</span>
+          <input id="searchInput" type="search" placeholder="ค้นหาชื่อ รถ หรือรหัสลูกค้า" autocomplete="off" />
+        </label>
+
+        <div class="filters" role="tablist" aria-label="กรองคิวงาน">
+          <button type="button" class="filter is-active" data-filter="today">ใกล้หมดอายุ</button>
+          <button type="button" class="filter" data-filter="open">ยังไม่ติดต่อ</button>
+          <button type="button" class="filter" data-filter="all">ทั้งหมด</button>
+        </div>
+
+        <section id="queue" class="queue" aria-labelledby="railTitle"></section>
+      </aside>
+
+      <section id="caseView" class="case-workspace" aria-live="polite"></section>
+    </main>
+
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
